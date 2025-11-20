@@ -34,6 +34,15 @@
     4. Decision thresholds are calibrated for conservative lending
     5. Manual review cases require human underwriter assessment
 
+    DECISION LOGIC ASSUMPTIONS:
+    ---------------------------
+    1. Each criterion is INDEPENDENT - there is no correlation or weighting
+       between them in the final decision
+    2. The final loan decision is derived from the risk level of individual
+       criteria and their combination (not from weighted scores)
+    3. Individual criterion risk levels determine decision rules
+    4. Combined score is used only for overall risk categorization
+
     QUERY LOGIC:
     ------------
     Combined Score = (Transaction + Affordability + Employment + Behavior) / 4
@@ -741,13 +750,38 @@
                         </div>
                     </div>
 
+                    <!-- Decision Logic Assumptions -->
+                    <div class="assumptions-section">
+                        <h3 class="assumptions-title">
+                            <span class="title-icon">📋</span>
+                            Decision Logic Assumptions
+                        </h3>
+                        <div class="assumptions-grid">
+                            <div class="assumption-item">
+                                <div class="assumption-number">1</div>
+                                <div class="assumption-content">
+                                    <strong>Criteria Independence</strong>
+                                    <p>Each criterion is independent; there is no correlation or weighting between them in the final decision.</p>
+                                </div>
+                            </div>
+                            <div class="assumption-item">
+                                <div class="assumption-number">2</div>
+                                <div class="assumption-content">
+                                    <strong>Decision Derivation</strong>
+                                    <p>The final loan decision is derived from the risk level of individual criteria and their combination, not from weighted scores.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Weighting Note -->
                     <div class="weighting-note">
                         <p>
                             <strong>Note:</strong> Combined score is calculated as the
                             simple average of all four criteria scores (equal 25% weighting each).
                             This provides a balanced assessment where no single factor dominates
-                            the overall risk profile.
+                            the overall risk profile. However, the final decision is based on
+                            individual criterion risk levels, not the combined score.
                         </p>
                     </div>
                 </div>
