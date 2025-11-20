@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!--
+    ============================================================================
+    CASH-FLOW RISK ASSESSMENT MODEL - INTERACTIVE WEB REPORT
+    ============================================================================
+
+    METHODOLOGY DOCUMENTATION
+    =========================
+    This document serves as a comprehensive, interactive loan approval decision
+    engine based on cash-flow risk assessment. The model evaluates loan applicants
+    across four key criteria and produces automated decisions.
+
+    APPROACH:
+    ---------
+    1. Multi-criteria risk assessment using weighted scoring
+    2. Rule-based decision engine with clear thresholds
+    3. Visual representation of risk distributions and patterns
+    4. Interactive exploration of individual customer risk profiles
+
+    DATA SOURCES:
+    -------------
+    - Primary: User-uploaded CSV files with customer financial data
+    - Secondary: Simulated sample data for demonstration purposes
+    - Expected format: customer_id, transaction_history, affordability,
+      employment, behavior (all numeric 0-100)
+
+    ASSUMPTIONS:
+    ------------
+    1. All input scores are normalized to 0-100 scale
+    2. Higher scores indicate lower risk (better performance)
+    3. Equal weighting across all four criteria for combined score
+    4. Decision thresholds are calibrated for conservative lending
+    5. Manual review cases require human underwriter assessment
+
+    QUERY LOGIC:
+    ------------
+    Combined Score = (Transaction + Affordability + Employment + Behavior) / 4
+
+    Risk Level Determination:
+    - Low Risk: Combined Score >= 70
+    - Moderate Risk: Combined Score 50-69
+    - Elevated Risk: Combined Score 35-49
+    - High Risk: Combined Score < 35
+
+    VERSION: 1.0
+    CREATED: 2025
+    AUTHOR: Generated with Claude Code
+    ============================================================================
+    -->
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Prevent search engine indexing per requirements -->
+    <meta name="robots" content="noindex,nofollow">
+    <meta name="googlebot" content="noindex,nofollow">
+
+    <title>Cash-Flow Risk Assessment Model | Interactive Decision Engine</title>
+    <meta name="description" content="Interactive loan approval decision engine based on cash-flow risk assessment">
+
+    <!-- External Libraries -->
+    <!-- Plotly.js for interactive charts - chosen for its comprehensive chart types -->
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <!-- PapaParse for CSV parsing - robust and handles edge cases well -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+    <!-- Internal Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!--
+    ============================================================================
+    SCROLL PROGRESS INDICATOR
+    ============================================================================
+    Visual feedback showing user's position within the document.
+    Implemented using CSS width animation controlled by JavaScript scroll event.
+    -->
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <!--
+    ============================================================================
+    HEADER / NAVIGATION
+    ============================================================================
+    Fixed navigation with smooth scroll behavior.
+    Navigation items correspond to main report sections.
+    Active state highlighting implemented via Intersection Observer API.
+    -->
+    <header class="main-header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <span class="logo-icon">📊</span>
+                    <div class="logo-text">
+                        <h1>Cash-Flow Risk Assessment</h1>
+                        <p class="subtitle">Interactive Loan Approval Decision Engine</p>
+                    </div>
+                </div>
+                <nav class="main-nav">
+                    <a href="#upload" class="nav-link active">Upload</a>
+                    <a href="#overview" class="nav-link">Overview</a>
+                    <a href="#analysis" class="nav-link">Analysis</a>
+                    <a href="#details" class="nav-link">Details</a>
+                    <a href="#methodology" class="nav-link">Methodology</a>
+                </nav>
+                <button class="mobile-menu-toggle" id="mobileMenuToggle">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!--
+        ============================================================================
+        HERO SECTION
+        ============================================================================
+        Primary landing area with key value proposition and quick stats.
+        Stats counters animate on page load using requestAnimationFrame.
+        Background uses gradient overlay for visual depth.
+        -->
+        <section class="hero-section">
+            <div class="hero-background"></div>
+            <div class="container">
+                <div class="hero-content">
+                    <h2 class="hero-title">Intelligent Risk Assessment</h2>
+                    <p class="hero-description">
+                        Transform your lending decisions with data-driven insights.
+                        Our multi-criteria model evaluates transaction history, affordability,
+                        employment stability, and behavioral patterns to deliver accurate risk assessments.
+                    </p>
+                    <div class="hero-stats">
+                        <div class="stat-item">
+                            <span class="stat-value" data-target="4">4</span>
+                            <span class="stat-label">Risk Criteria</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" data-target="100">100</span>
+                            <span class="stat-label">Point Scale</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" data-target="4">4</span>
+                            <span class="stat-label">Decision Types</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" data-target="0" id="totalCustomers">0</span>
+                            <span class="stat-label">Records Loaded</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--
+        ============================================================================
+        DATA UPLOAD SECTION
+        ============================================================================
+
+        METHODOLOGY:
+        This section handles data ingestion through two methods:
+        1. CSV file upload with drag-and-drop support
+        2. Sample data generation for demonstration
+
+        DATA TRANSFORMATION LOGIC:
+        - CSV parsing via PapaParse library
+        - Header normalization (lowercase, trim whitespace)
+        - Numeric validation for all score fields
+        - Invalid rows filtered out with user notification
+
+        EXPECTED DATA STRUCTURE:
+        {
+            customer_id: string,
+            transaction_history: number (0-100),
+            affordability: number (0-100),
+            employment: number (0-100),
+            behavior: number (0-100)
+        }
+
+        ERROR HANDLING:
+        - Missing columns: Warning displayed, processing continues
+        - Invalid values: Row skipped, count reported
+        - Empty file: Error message, no processing
+        -->
+        <section id="upload" class="upload-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon">📁</span>
+                        Data Upload
+                    </h2>
+                    <p class="section-description">
+                        Upload your customer data to begin the risk assessment analysis
+                    </p>
+                </div>
+
+                <div class="card upload-card">
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" id="csvFile" accept=".csv" hidden>
+                        <label for="csvFile" class="upload-label">
+                            <div class="upload-icon-wrapper">
+                                <div class="upload-icon">📤</div>
+                            </div>
+                            <p class="upload-text">Click to upload CSV file or drag and drop</p>
+                            <p class="upload-hint">
+                                Required columns: customer_id, transaction_history, affordability, employment, behavior
+                            </p>
+                        </label>
+                    </div>
+
+                    <div class="upload-actions">
+                        <button id="loadSampleData" class="btn btn-primary">
+                            <span class="btn-icon">🎲</span>
+                            Load Sample Data
+                        </button>
+                        <button id="clearData" class="btn btn-secondary" disabled>
+                            <span class="btn-icon">🗑️</span>
+                            Clear Data
+                        </button>
+                    </div>
+
+                    <div id="uploadStatus" class="upload-status"></div>
+                </div>
+            </div>
+        </section>
+
+        <!--
+        ============================================================================
+        OVERVIEW / SUMMARY CARDS SECTION
+        ============================================================================
+
+        METHODOLOGY:
+        Displays aggregate decision distribution across all loaded customers.
+        Each card represents one of four possible decisions.
+
+        DECISION LOGIC (implemented in script.js):
+
+        AUTO-APPROVE (Low Risk):
+        - All criteria score as Low Risk (>= 70), OR
+        - 2+ criteria Low Risk, remainder Moderate Risk
+
+        MANUAL REVIEW (Moderate Risk):
+        - Mixed moderate and low risk patterns
+        - One Elevated Risk (non-affordability) + 3 Moderate
+
+        ELEVATED RISK (Requires Review):
+        - One Elevated Risk criterion
+        - Borderline cases requiring additional documentation
+
+        AUTO-DENY (High Risk):
+        - Any criterion scores as High Risk (< 35), OR
+        - Two or more Elevated Risk criteria, OR
+        - Elevated Risk in affordability + 3 Moderate Risk
+
+        VISUAL DESIGN:
+        Cards use color coding (green/blue/orange/red) for instant recognition.
+        Numbers animate on data load using counter animation.
+        -->
+        <section id="overview" class="overview-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon">📈</span>
+                        Decision Overview
+                    </h2>
+                    <p class="section-description">
+                        Summary of automated lending decisions based on risk assessment
+                    </p>
+                </div>
+
+                <div class="summary-grid">
+                    <!-- Auto Approve Card -->
+                    <div class="summary-card card-approve" data-decision="approve">
+                        <div class="card-accent"></div>
+                        <div class="card-icon">✓</div>
+                        <h3 class="card-title">Auto Approve</h3>
+                        <p class="card-value" id="autoApprove">0</p>
+                        <p class="card-label">Low Risk</p>
+                        <div class="card-bar">
+                            <div class="bar-fill" id="approveBar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Manual Review Card -->
+                    <div class="summary-card card-review" data-decision="review">
+                        <div class="card-accent"></div>
+                        <div class="card-icon">👁</div>
+                        <h3 class="card-title">Manual Review</h3>
+                        <p class="card-value" id="manualReview">0</p>
+                        <p class="card-label">Moderate Risk</p>
+                        <div class="card-bar">
+                            <div class="bar-fill" id="reviewBar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Elevated Risk Card -->
+                    <div class="summary-card card-elevated" data-decision="elevated">
+                        <div class="card-accent"></div>
+                        <div class="card-icon">⚠</div>
+                        <h3 class="card-title">Elevated Risk</h3>
+                        <p class="card-value" id="elevatedRisk">0</p>
+                        <p class="card-label">Requires Review</p>
+                        <div class="card-bar">
+                            <div class="bar-fill" id="elevatedBar"></div>
+                        </div>
+                    </div>
+
+                    <!-- Auto Deny Card -->
+                    <div class="summary-card card-deny" data-decision="deny">
+                        <div class="card-accent"></div>
+                        <div class="card-icon">✕</div>
+                        <h3 class="card-title">Auto Deny</h3>
+                        <p class="card-value" id="autoDeny">0</p>
+                        <p class="card-label">High Risk</p>
+                        <div class="card-bar">
+                            <div class="bar-fill" id="denyBar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--
+        ============================================================================
+        KEY INSIGHTS SECTION
+        ============================================================================
+
+        METHODOLOGY:
+        Dynamically generates actionable insights from loaded data.
+        Uses statistical analysis to identify patterns and red flags.
+
+        INSIGHT GENERATION LOGIC:
+        1. Calculate percentage distribution of each risk level
+        2. Identify criteria with highest number of high-risk scores
+        3. Detect correlation patterns between criteria
+        4. Generate red flags for systemic issues
+
+        RED FLAG TRIGGERS:
+        - >20% of customers in any single High Risk criterion
+        - >30% of customers require manual review
+        - Strong negative correlation between criteria
+        - Cluster of borderline cases (scores 48-52)
+
+        DATA VISUALIZATION:
+        Uses pill-style tags with color coding for quick scanning.
+        Expandable sections for detailed breakdowns.
+        -->
+        <section class="insights-section">
+            <div class="container">
+                <div class="card insights-card">
+                    <h2 class="card-header">
+                        <span class="header-icon">🔍</span>
+                        Key Insights & Red Flags
+                    </h2>
+                    <div id="insightsContainer" class="insights-container">
+                        <div class="insight-placeholder">
+                            <span class="placeholder-icon">📊</span>
+                            <p>Upload data to generate insights...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--
+        ============================================================================
+        ANALYSIS / CHARTS SECTION
+        ============================================================================
+
+        CHART IMPLEMENTATION METHODOLOGY:
+        All charts use Plotly.js for consistent styling and interactivity.
+        Charts update dynamically when data is loaded or filtered.
+
+        CHART 1: Risk Distribution (Pie/Donut)
+        - Shows percentage breakdown of four decision categories
+        - Hover reveals exact count and percentage
+        - Click to isolate segment
+
+        CHART 2: Criteria Breakdown (Grouped Bar)
+        - X-axis: Four criteria categories
+        - Y-axis: Count of customers
+        - Grouped by risk level (Low/Moderate/Elevated/High)
+        - Identifies which criteria cause most rejections
+
+        CHART 3: Score Distribution (Histogram)
+        - Shows distribution of combined scores
+        - Overlaid threshold lines for decision boundaries
+        - Helps identify clustering patterns
+
+        CHART 4: Multi-Criteria Radar
+        - Visualizes individual customer risk profile
+        - Dropdown selector for customer ID
+        - "All Customers" shows average profile
+        - Useful for identifying specific weak areas
+
+        CHART 5: Risk Heatmap
+        - Rows: Customers (limited to top 50 for visibility)
+        - Columns: Four criteria
+        - Color intensity: Risk level
+        - Useful for pattern recognition across portfolio
+
+        COLOR SCHEME:
+        - Low Risk: #17ca60 (Green)
+        - Moderate Risk: #0156f4 (Blue)
+        - Elevated Risk: #f5a623 (Orange)
+        - High Risk: #e53e3e (Red)
+        -->
+        <section id="analysis" class="charts-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon">📉</span>
+                        Risk Analysis
+                    </h2>
+                    <p class="section-description">
+                        Visual breakdown of risk patterns and distributions
+                    </p>
+                </div>
+
+                <div class="charts-grid">
+                    <!-- Risk Distribution Chart -->
+                    <div class="card chart-card">
+                        <h3 class="chart-title">Overall Risk Distribution</h3>
+                        <div id="riskDistributionChart" class="chart-container"></div>
+                    </div>
+
+                    <!-- Criteria Breakdown Chart -->
+                    <div class="card chart-card">
+                        <h3 class="chart-title">Risk by Criteria</h3>
+                        <div id="criteriaBreakdownChart" class="chart-container"></div>
+                    </div>
+
+                    <!-- Score Distribution Chart -->
+                    <div class="card chart-card">
+                        <h3 class="chart-title">Combined Score Distribution</h3>
+                        <div id="scoreDistributionChart" class="chart-container"></div>
+                    </div>
+
+                    <!-- Radar Chart -->
+                    <div class="card chart-card">
+                        <h3 class="chart-title">Multi-Criteria Risk Profile</h3>
+                        <div class="chart-controls">
+                            <label for="customerSelect">Select Customer:</label>
+                            <select id="customerSelect" class="select-input">
+                                <option value="all">All Customers (Average)</option>
+                            </select>
+                        </div>
+                        <div id="radarChart" class="chart-container"></div>
+                    </div>
+                </div>
+
+                <!-- Full Width Heatmap -->
+                <div class="card chart-card chart-card-full">
+                    <h3 class="chart-title">Risk Heatmap - Customer Portfolio</h3>
+                    <p class="chart-subtitle">
+                        Color intensity indicates risk level across all criteria
+                    </p>
+                    <div id="heatmapChart" class="chart-container chart-large"></div>
+                </div>
+            </div>
+        </section>
+
+        <!--
+        ============================================================================
+        DETAILED DATA TABLE SECTION
+        ============================================================================
+
+        METHODOLOGY:
+        Provides granular view of all customer records with full interactivity.
+
+        TABLE FEATURES:
+        1. Search: Filters by customer ID (case-insensitive)
+        2. Risk Level Filter: Dropdown to show only specific risk levels
+        3. Column Sorting: Click headers to sort (asc/desc toggle)
+        4. Pagination: 25 records per page (configurable)
+        5. Export: Download filtered results as CSV
+
+        DATA TRANSFORMATION:
+        Raw scores are color-coded based on risk level.
+        Combined score calculated on the fly.
+        Decision derived from business rules (see Decision Logic above).
+
+        SORTING IMPLEMENTATION:
+        Uses stable sort algorithm to maintain secondary order.
+        Numeric columns sorted numerically, text alphabetically.
+        Visual indicator (▲/▼) shows current sort direction.
+
+        EXPORT FORMAT:
+        CSV with all columns plus calculated fields.
+        Filename includes timestamp for versioning.
+        -->
+        <section id="details" class="table-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon">📋</span>
+                        Customer Risk Details
+                    </h2>
+                    <p class="section-description">
+                        Detailed view of individual customer risk assessments
+                    </p>
+                </div>
+
+                <div class="card table-card">
+                    <div class="table-controls">
+                        <div class="control-group">
+                            <div class="search-wrapper">
+                                <span class="search-icon">🔍</span>
+                                <input type="text" id="searchInput" class="search-input"
+                                       placeholder="Search by Customer ID...">
+                            </div>
+                            <select id="filterRisk" class="select-input">
+                                <option value="all">All Risk Levels</option>
+                                <option value="Low Risk">Low Risk</option>
+                                <option value="Moderate Risk">Moderate Risk</option>
+                                <option value="Elevated Risk">Elevated Risk</option>
+                                <option value="High Risk">High Risk</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <button id="exportBtn" class="btn btn-secondary" disabled>
+                                <span class="btn-icon">📥</span>
+                                Export CSV
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="dataTable" class="data-table">
+                            <thead>
+                                <tr>
+                                    <th data-sort="customer_id">
+                                        Customer ID
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                    <th data-sort="transaction_history">
+                                        Transaction
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                    <th data-sort="affordability">
+                                        Affordability
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                    <th data-sort="employment">
+                                        Employment
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                    <th data-sort="behavior">
+                                        Behavior
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                    <th data-sort="combined_score">
+                                        Combined Score
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                    <th data-sort="risk_level">
+                                        Risk Level
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                    <th data-sort="decision">
+                                        Decision
+                                        <span class="sort-icon"></span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody">
+                                <tr>
+                                    <td colspan="8" class="table-placeholder">
+                                        <span class="placeholder-icon">📊</span>
+                                        <p>No data loaded. Upload a CSV or load sample data.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="table-footer">
+                        <div class="table-info">
+                            <span id="tableInfo">Showing 0 of 0 records</span>
+                        </div>
+                        <div class="pagination" id="pagination"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!--
+        ============================================================================
+        METHODOLOGY SECTION
+        ============================================================================
+
+        Documents the complete risk assessment methodology for transparency.
+        This section explains:
+        1. Scoring criteria for each of the four dimensions
+        2. Risk level thresholds
+        3. Decision logic rules
+        4. Weight distribution
+
+        DESIGN APPROACH:
+        Uses flip cards (like reference design) for interactive exploration.
+        Each criterion card contains detailed breakdown of scoring rules.
+        Decision logic section uses color-coded panels for clarity.
+        -->
+        <section id="methodology" class="methodology-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span class="section-icon">📖</span>
+                        Assessment Methodology
+                    </h2>
+                    <p class="section-description">
+                        Understanding the risk scoring criteria and decision logic
+                    </p>
+                </div>
+
+                <!-- Criteria Cards -->
+                <div class="methodology-grid">
+                    <!-- Transaction History Card -->
+                    <div class="methodology-card" data-criteria="transaction">
+                        <div class="method-card-front">
+                            <div class="method-icon">🏦</div>
+                            <h3>Transaction History</h3>
+                            <p>Banking relationship depth and stability</p>
+                            <span class="flip-hint">Click for details</span>
+                        </div>
+                        <div class="method-card-back">
+                            <h4>Scoring Criteria</h4>
+                            <ul>
+                                <li><span class="risk-badge high">High Risk</span> 0-49: &lt;60 days history</li>
+                                <li><span class="risk-badge elevated">Elevated</span> 50-69: 60-119 days</li>
+                                <li><span class="risk-badge moderate">Moderate</span> 50-69: 120-181 days</li>
+                                <li><span class="risk-badge low">Low Risk</span> 70-100: 182+ days</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Affordability Card -->
+                    <div class="methodology-card" data-criteria="affordability">
+                        <div class="method-card-front">
+                            <div class="method-icon">💰</div>
+                            <h3>Parcel Affordability</h3>
+                            <p>Ability to afford loan payments after expenses</p>
+                            <span class="flip-hint">Click for details</span>
+                        </div>
+                        <div class="method-card-back">
+                            <h4>Scoring Criteria</h4>
+                            <ul>
+                                <li><span class="risk-badge high">High Risk</span> 0-25: &lt;45% affordability</li>
+                                <li><span class="risk-badge elevated">Elevated</span> 26-50: 45-59.99%</li>
+                                <li><span class="risk-badge moderate">Moderate</span> 51-75: 60-75%</li>
+                                <li><span class="risk-badge low">Low Risk</span> 76-100: 75.01-100%</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Employment Card -->
+                    <div class="methodology-card" data-criteria="employment">
+                        <div class="method-card-front">
+                            <div class="method-icon">💼</div>
+                            <h3>Employment Stability</h3>
+                            <p>Income stability and continuity assessment</p>
+                            <span class="flip-hint">Click for details</span>
+                        </div>
+                        <div class="method-card-back">
+                            <h4>Scoring Criteria</h4>
+                            <ul>
+                                <li><span class="risk-badge high">High Risk</span> 0-49: &lt;45% stability</li>
+                                <li><span class="risk-badge elevated">Elevated</span> 50-69: 45-59.99%</li>
+                                <li><span class="risk-badge moderate">Moderate</span> 50-69: 60-75%</li>
+                                <li><span class="risk-badge low">Low Risk</span> 70-100: 75-100%</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Behavior Card -->
+                    <div class="methodology-card" data-criteria="behavior">
+                        <div class="method-card-front">
+                            <div class="method-icon">📊</div>
+                            <h3>Financial Behavior</h3>
+                            <p>Conduct patterns in last 90 days</p>
+                            <span class="flip-hint">Click for details</span>
+                        </div>
+                        <div class="method-card-back">
+                            <h4>Scoring Criteria</h4>
+                            <ul>
+                                <li><span class="risk-badge high">High Risk</span> 0-49: 2+ stop payments/3+ ACH returns</li>
+                                <li><span class="risk-badge elevated">Elevated</span> 50-69: 1 stop/2 ACH returns</li>
+                                <li><span class="risk-badge moderate">Moderate</span> 60-75: 1 ACH return</li>
+                                <li><span class="risk-badge low">Low Risk</span> 76-100: 0 derogatory items</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Decision Logic Section -->
+                <div class="decision-logic-section">
+                    <h3 class="logic-title">
+                        <span class="title-icon">🎯</span>
+                        Decision Logic Matrix
+                    </h3>
+
+                    <div class="logic-grid">
+                        <!-- Auto Deny Logic -->
+                        <div class="logic-card logic-deny">
+                            <h4>
+                                <span class="logic-icon">✕</span>
+                                Auto-Deny Conditions
+                            </h4>
+                            <ul>
+                                <li>Any criterion scores as High Risk</li>
+                                <li>Two or more Elevated Risk criteria</li>
+                                <li>Elevated Risk in affordability + 3 Moderate Risk criteria</li>
+                            </ul>
+                        </div>
+
+                        <!-- Auto Approve Logic -->
+                        <div class="logic-card logic-approve">
+                            <h4>
+                                <span class="logic-icon">✓</span>
+                                Auto-Approve Conditions
+                            </h4>
+                            <ul>
+                                <li>All four criteria score as Low Risk</li>
+                                <li>2+ criteria Low Risk, remainder Moderate Risk</li>
+                            </ul>
+                        </div>
+
+                        <!-- Manual Review Logic -->
+                        <div class="logic-card logic-review">
+                            <h4>
+                                <span class="logic-icon">👁</span>
+                                Manual Review Conditions
+                            </h4>
+                            <ul>
+                                <li>One Elevated Risk (not affordability) + 3 Moderate Risk</li>
+                                <li>Mixed moderate and low risk patterns</li>
+                                <li>Borderline combined scores (48-52)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- Weighting Note -->
+                    <div class="weighting-note">
+                        <p>
+                            <strong>Note:</strong> Combined score is calculated as the
+                            simple average of all four criteria scores (equal 25% weighting each).
+                            This provides a balanced assessment where no single factor dominates
+                            the overall risk profile.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!--
+    ============================================================================
+    FOOTER
+    ============================================================================
+    -->
+    <footer class="main-footer">
+        <div class="container">
+            <div class="footer-content">
+                <p class="footer-text">
+                    Cash-Flow Risk Assessment Model | Interactive Decision Engine
+                </p>
+                <p class="footer-copyright">
+                    © 2025 | Generated with Claude Code
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script src="script.js"></script>
+</body>
+</html>
